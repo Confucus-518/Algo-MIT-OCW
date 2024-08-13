@@ -8,7 +8,7 @@ Through amortization, it can be seen that the benefit balances out the cost such
 
 using namespace std;
 
-template <typename T>
+template <typename T>  //set template data type
 class DynArr{
     private:
         T* arr; //pointer to array
@@ -16,40 +16,43 @@ class DynArr{
         int capacity;//capacity of structure, important for resizing ops
 
         void resize(){
-            capacity *= 2;
-            T* newArr = new T[capacity];
+            capacity *= 2; //double capacity
+            T* newArr = new T[capacity]; //make new array with new capacity size
             for (int i = 0; i < size; i++){
-                newArr[i] = arr[i];
+                newArr[i] = arr[i]; //copy elements
             }
-            delete[] arr;
-            arr = newArr;
+            delete[] arr; //delete old array
+            arr = newArr; //rename new array to original array
         }
 
     public:
 
+        //contructor
         DynArr(){
             size = 0;
             capacity = 2;
-            arr = new T[capacity];
+            arr = new T[capacity]; 
         }
 
+        //destructor
         ~DynArr(){
             delete[] arr;
         }
 
         void add(T data){
-            if (size == capacity) resize();
-            arr[size++] = data;
+            if (size == capacity) resize(); //if max size reached then resize
+            arr[size++] = data; //allocate next index to new data
         }
 
         void remove(int i){
             if (i < 0 || i >= size){
-                throw out_of_range("Index out of range >:(");
+                throw out_of_range("Index out of range >:("); //check it out of range
             }
+            //iterate to the end of the list from the specified index
             for (int n = i; n < size - 1; n++){
-                arr[i] = arr[i+1];
+                arr[i] = arr[i+1]; //set element at specified index to the element of the next index, effectively removing it
             }
-            size--;
+            size--; //since there is now one empty space at the end, remove it to save space for future insertions
         }    
 
         T get(int i) const{
