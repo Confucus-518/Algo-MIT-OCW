@@ -1,4 +1,4 @@
-/*Hash tables are the final data structure I will be coding out.
+/*Hash tables are the third data structure I will be coding out.
 In contrast to linked lists and dynamic arrays, hash tables are sets and not sequences, meaning that the elements are not in order (hence the name unordered_map)
 Hash tables work by assigning a hash to each key where the key is kinda like the index of the element but is not neccessarily ordered numbers and could be words
 The hash is obtained through a hash function that is usually something like dividing a large prime number by table size or some complicated math stuff
