@@ -6,6 +6,7 @@ Side note: This is an AVL tree, which is the first maintenance algorithm for bin
 
 #include <iostream>
 #include <memory>
+#include <algorithm>
 
 using namespace std;
 
@@ -17,9 +18,88 @@ public:
     int data; //element or actual stuff stored in the node
     nodeptr left, right; //left and right ptr
     node* parent; //parent ptr, it is raw since the parent node belongs to the other child node as well and cannot be unique
+    int height;
 
-    node(int x) : data(x), parent(nullptr){}; //construct
+    node(int x) : data(x), parent(nullptr), height(1){
+        cout << "constructing"<<endl;
+    } //construct
+
+    ~node(){
+        cout << "destroying" << endl;
+    }
+
+    void update(){
+        cout <<"updating with data: " << data << endl;
+        int left_h = left ? left -> height : 0;
+        int right_h = right ? right -> height : 0;
+        height = 1 + max(left_h, right_h);
+        cout << "updated height: " << height << endl;
+    }
+
+    int get_skew() const{
+        cout << "getting skew..." << endl;
+        int left_h = left ? left -> height : 0;
+        int right_h = right ? right -> height : 0;
+        cout << "calculated skew: " << height << endl;
+        return left_h - right_h;
+        
+    }
+
+    nodeptr rotate_right(){
+        cout << "rotating right..."<< endl;
+        nodeptr new_root = move(left);
+        if (new_root){
+            left = move(new_root -> right);
+            if (left){
+                left -> parent = this;
+            }
+
+            new_root -> right.reset(this);
+            new_root -> parent = parent;
+
+            if (parent){
+                if (parent -> left.get() == this){
+                    parent -> left = move(new_root);
+                }else{
+                    parent -> right = move(new_root);
+                }
+            }
+            parent = new_root.get();
+            update();
+            new_root -> update();
+        }else{
+            cout << "error: Trying to rotate right on a node with no left child" <<endl;
+        }
+        return new_root;
+    }
     
+    nodeptr rotate_left(){
+        cout << "rotating left..." <<endl;
+        nodeptr new_root = move(right);
+        if (new_root){
+            right = move(new_root -> left);
+            if (right){
+                right -> parent = this;
+            }
+            new_root -> left.reset(this);
+            new_root -> parent = parent;
+
+            if(parent){
+                if (parent -> left.get() == this){
+                    parent -> left = move(new_root);
+                }else{
+                    parent -> right = move(new_root);
+                }
+            }
+            parent = new_root.get();
+            update();
+            new_root -> update();
+        }else{
+            cout << "error: Trying to rotate left on a node with no right child" << endl;
+        }
+        return new_root;
+    }
+
     /*iterate through the subtree selected and print out each node in traversal order
     Traversal order is simply defined as the left -> current -> right from small to largest.
     Every subtree/node in the left subtree is m */
@@ -88,13 +168,10 @@ public:
         }
     }
 
-    //removing the node is actly fairly complex at first since deleting a node with children woudl disrupt the tree
+    //removing the node is actly fairly complex at first since deleting a node with children would disrupt the tree
     nodeptr subtree_remove(){
         if (left || right){ //check for child ptrs
-            node* Node; //initialise a noden for tracking
-            if (left) Node = predecessor(); //if there is a left child then set node to next smallest value
-            else Node = successor();//else set to the next largest
-
+            node* Node = left ? predecessor() : successor(); //initialise a node for tracking
             swap (data, Node -> data); //swap data of current node to be deleted and the pred/succ
             //This makes the node to be deleted a leaf so it does not disrupt the tree, we are not moving the actual node but subsituting the data such that it is pretty much the exact same
             return Node -> subtree_remove(); //simply recurse to check if there are children
@@ -103,7 +180,8 @@ public:
             if (parent -> left.get() == this) parent -> left.reset(); //if left then delete the left ptr of the parent. Interestingly, reset() is a specific to unique ptrs and if the ptr being reset is the last owner of the obj (or node in this case), the obj gets auto deleted. No more mem leakage :)
             else parent -> right.reset(); //same but right 
         }
-        return nullptr; //if node has no parents or child then its just a node, so... idk
+        parent = nullptr;
+        return nodeptr(this); //if node has no parents or child then its just a node, so... idk
     }
 };
 
@@ -112,6 +190,33 @@ private:
     nodeptr root; //make root node for the tree
     int size; // size meaning the number of nodes
 
+    void rebalance(node* Node) {
+        cout << "rebalancing node with data: " << Node -> data << endl;
+        while (Node) {
+            Node->update();
+            int skew = Node->get_skew();
+            cout << "skew is " << skew << endl;
+
+            if (skew > 1) {
+                if (Node->left->get_skew() < 0) {
+                    Node->left = Node->left->rotate_left();
+                    Node->left->parent = Node;  // Fix parent pointer
+                }
+                Node = Node->rotate_right().release();
+            } else if (skew < -1) {
+                if (Node->right->get_skew() > 0) {
+                    Node->right = Node->right->rotate_right();
+                    Node->right->parent = Node;  // Fix parent pointer
+                }
+                Node = Node->rotate_left().release();
+            }
+            if (!Node->parent) {
+                root.reset(Node);
+                break;
+            }
+            Node = Node->parent;
+        }
+    }
 public:
     BinaryTree(): root(nullptr), size(0){}; //constructor
 
@@ -128,7 +233,7 @@ public:
 
     //inserting function for the tree
     void insert(int x){
-        nodeptr newnode = make_unique<node>(x); //make a new node with unqiue ptrs
+        nodeptr newnode = make_unique<node>(x); //make a new node with unique ptrs
         if (!root) root = move(newnode); //if there is no root meaning no tree then make the new node the root
         else{
             node* Node = root.get();//first find the root of the tree
@@ -138,6 +243,7 @@ public:
                     else{
                         Node -> left = move(newnode); //if there is no left child then set left ptr of parent
                         Node -> left -> parent = Node; //connect parent ptr of new node
+                        rebalance(Node -> left.get());
                         break; //BREAKKKK
                     }
                 }else{ //if more
@@ -145,10 +251,12 @@ public:
                     else{
                         Node -> right = move(newnode); //same stuff as above but vice versa
                         Node -> right -> parent = Node;
+                        rebalance(Node -> right.get());
                         break;
                     }
                 }
             }
+            rebalance(Node);
         }
         size++;//increase size to account for new node
     }
@@ -160,7 +268,14 @@ public:
             else Node = Node -> right.get(); //if greater then go right
         }
         if (Node){ //if there is a node
+            node* parent = Node -> parent;
             nodeptr deleted_node = Node -> subtree_remove(); //set current node and use the subtree_remove func above to ensure proper deletion
+            if (Node == root.get()){
+                root = move(deleted_node);
+            }
+            if (parent){
+                rebalance(parent);
+            }
             size --; //decrease size to account for one less node
         }else{
             cout << "Value to be deleted was not found" << endl;
@@ -173,8 +288,6 @@ int main(){
     BinaryTree tree;
 
     tree.insert(3);
-    tree.insert(5);
-    tree.insert(10);
     tree.insert(1);
 
     tree.traverse();
